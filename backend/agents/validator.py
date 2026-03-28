@@ -1,7 +1,6 @@
 import json
 from datetime import datetime
-from groq import AsyncGroq
-from config import settings
+from services.llm_client import llm_completion
 from agents.state import AgentState
 
 SYSTEM_PROMPT = """You are a validation agent for a data analytics system. Your job is to verify that generated Python code and its execution results correctly answer the user's question.
@@ -50,16 +49,13 @@ async def validator_node(state: AgentState) -> dict:
             "thought_trace": [trace_entry, done_entry],
         }
 
-    client = AsyncGroq(api_key=settings.GROQ_API_KEY)
-
     user_msg = 'User\'s original question: "{}"\n\nGenerated code:\n```python\n{}\n```\n\nExecution result:\n{}\n\nIs this code correct and does the result properly answer the user\'s question?'.format(
         state["user_query"],
         state.get("generated_code", "N/A"),
         state.get("execution_result", "N/A"),
     )
 
-    response = await client.chat.completions.create(
-        model=settings.GROQ_MODEL,
+    text = await llm_completion(
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_msg},
@@ -69,7 +65,6 @@ async def validator_node(state: AgentState) -> dict:
     )
 
     try:
-        text = response.choices[0].message.content.strip()
         if text.startswith("```"):
             text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
         result = json.loads(text)

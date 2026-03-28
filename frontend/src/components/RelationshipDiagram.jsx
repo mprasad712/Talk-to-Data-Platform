@@ -1,50 +1,62 @@
 import React from 'react';
 
-const FILE_COLORS = ['var(--red)', 'var(--blue)', 'var(--amber)', 'var(--purple)', 'var(--cyan)', 'var(--green)'];
+const FILE_COLORS = ['#dc2626', '#3b82f6', '#f59e0b', '#a855f7', '#06b6d4', '#22c55e'];
 
-/**
- * Compact relationship view for sidebar — shows dotted-arrow connections
- */
 export default function RelationshipDiagram({ files, relationships }) {
   if (!relationships || relationships.length === 0) return null;
 
-  // Assign colors to files
   const colorMap = {};
   (files || []).forEach((f, i) => { colorMap[f.filename] = FILE_COLORS[i % FILE_COLORS.length]; });
 
   return (
-    <div className="space-y-1.5">
-      {relationships.map((rel, i) => (
-        <div key={i} className="fade-up rounded-md border px-2 py-1.5" style={{ borderColor: 'var(--gray-200)', background: 'var(--gray-50)', animationDelay: `${i * 40}ms` }}>
-          {/* Files connected */}
-          <div className="flex items-center gap-1">
-            <span className="truncate rounded px-1 py-0.5 text-[8px] font-bold text-white" style={{ background: colorMap[rel.from_file] || 'var(--gray-500)', maxWidth: 70 }}>
-              {rel.from_file.replace('.csv', '')}
-            </span>
-            <div className="flex flex-1 items-center">
-              <div className="h-0 flex-1 border-t border-dashed" style={{ borderColor: 'var(--gray-400)' }} />
-              <svg className="h-2 w-2 shrink-0 -ml-px" style={{ color: 'var(--gray-400)' }} fill="currentColor" viewBox="0 0 8 8">
-                <path d="M0 0l8 4-8 4z" />
-              </svg>
+    <div className="space-y-2">
+      {relationships.map((rel, i) => {
+        const fromColor = colorMap[rel.from_file] || '#64748b';
+        const toColor = colorMap[rel.to_file] || '#64748b';
+        const fromCol = rel.from_column || rel.join_column || '?';
+        const toCol = rel.to_column || rel.join_column || '?';
+
+        return (
+          <div
+            key={i}
+            className="fade-up rounded-lg p-2.5 transition-shadow duration-200"
+            style={{ border: '1px solid var(--border-color)', background: 'var(--bg-raised)', animationDelay: `${i * 40}ms` }}
+          >
+            <div className="flex items-center gap-1.5">
+              <span
+                className="truncate rounded-md px-1.5 py-[3px] text-[8.5px] font-bold text-white"
+                style={{ background: fromColor, maxWidth: 75 }}
+              >
+                {rel.from_file.replace('.csv', '')}
+              </span>
+              <div className="flex flex-1 items-center">
+                <div className="h-0 flex-1 border-t border-dashed" style={{ borderColor: 'var(--text-ghost)' }} />
+                <svg className="-ml-px h-2.5 w-2.5 shrink-0" style={{ color: 'var(--text-faint)' }} fill="currentColor" viewBox="0 0 8 8">
+                  <path d="M0 0l8 4-8 4z" />
+                </svg>
+              </div>
+              <span
+                className="truncate rounded-md px-1.5 py-[3px] text-[8.5px] font-bold text-white"
+                style={{ background: toColor, maxWidth: 75 }}
+              >
+                {rel.to_file.replace('.csv', '')}
+              </span>
             </div>
-            <span className="truncate rounded px-1 py-0.5 text-[8px] font-bold text-white" style={{ background: colorMap[rel.to_file] || 'var(--gray-500)', maxWidth: 70 }}>
-              {rel.to_file.replace('.csv', '')}
-            </span>
+
+            <div className="mt-1.5 flex items-center justify-between">
+              <span className="font-mono text-[9px] font-semibold" style={{ color: 'var(--text-tertiary)' }}>
+                {fromCol === toCol ? fromCol : `${fromCol} → ${toCol}`}
+              </span>
+              <span
+                className="rounded-md px-1.5 py-[2px] text-[8px] font-bold uppercase tracking-wide"
+                style={{ background: 'var(--bg-overlay)', color: 'var(--text-muted)' }}
+              >
+                {rel.relationship_type}
+              </span>
+            </div>
           </div>
-          {/* Join details */}
-          <div className="mt-1 flex items-center justify-between">
-            <span className="font-mono text-[8px] font-bold" style={{ color: 'var(--gray-600)' }}>
-              {rel.join_column}
-            </span>
-            <span className="rounded px-1 py-0.5 text-[7px] font-semibold" style={{ background: 'var(--gray-200)', color: 'var(--gray-500)' }}>
-              {rel.relationship_type}
-            </span>
-          </div>
-          {rel.match_type === 'fuzzy' && (
-            <p className="mt-0.5 text-[7px] italic" style={{ color: 'var(--amber)' }}>fuzzy match</p>
-          )}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

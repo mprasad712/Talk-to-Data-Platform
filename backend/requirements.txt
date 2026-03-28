@@ -4,6 +4,9 @@ sse-starlette==3.3.0
 python-multipart==0.0.9
 langgraph==0.2.40
 groq
+openai
+anthropic
+google-genai
 pandas==2.2.2
 numpy==1.26.4
 pydantic-settings==2.5.2

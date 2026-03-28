@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 from api.routes_upload import router as upload_router
 from api.routes_chat import router as chat_router
+from api.routes_llm import router as llm_router
+from api.routes_operations import router as ops_router
 
 app = FastAPI(
     title="BCN Multi-Agent Data Analytics",
@@ -20,6 +22,8 @@ app.add_middleware(
 
 app.include_router(upload_router, prefix="/api", tags=["files"])
 app.include_router(chat_router, prefix="/api", tags=["chat"])
+app.include_router(llm_router, prefix="/api", tags=["llm"])
+app.include_router(ops_router, prefix="/api", tags=["data-operations"])
 
 
 @app.get("/api/health")

@@ -16,8 +16,8 @@ export function useChat(sessionId, onRelationshipsDetected) {
       // Add user message and a placeholder assistant message
       setMessages((prev) => [
         ...prev,
-        { role: 'user', content: query },
-        { role: 'assistant', content: '', isPlaceholder: true },
+        { role: 'user', content: query, timestamp: Date.now() },
+        { role: 'assistant', content: '', isPlaceholder: true, timestamp: Date.now() },
       ]);
       setThoughts([]);
       setGeneratedCode(null);
@@ -46,12 +46,13 @@ export function useChat(sessionId, onRelationshipsDetected) {
                   role: 'assistant',
                   content: data.content,
                   isPlaceholder: false,
+                  timestamp: Date.now(),
                 };
                 return updated;
               }
             }
             // Fallback: add new message
-            return [...prev, { role: 'assistant', content: data.content }];
+            return [...prev, { role: 'assistant', content: data.content, timestamp: Date.now() }];
           });
         },
         // onError
@@ -65,13 +66,14 @@ export function useChat(sessionId, onRelationshipsDetected) {
                   role: 'assistant',
                   content: `Error: ${data.message}`,
                   isError: true,
+                  timestamp: Date.now(),
                 };
                 return updated;
               }
             }
             return [
               ...prev,
-              { role: 'assistant', content: `Error: ${data.message}`, isError: true },
+              { role: 'assistant', content: `Error: ${data.message}`, isError: true, timestamp: Date.now() },
             ];
           });
           setIsStreaming(false);

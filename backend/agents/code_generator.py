@@ -1,6 +1,5 @@
 from datetime import datetime
-from groq import AsyncGroq
-from config import settings
+from services.llm_client import llm_completion
 from agents.state import AgentState
 
 SYSTEM_PROMPT = """You are a Python code generation agent for data analysis. Your job is to write a self-contained Python script using pandas to answer the user's question about their datasets.
@@ -58,8 +57,6 @@ async def code_generator_node(state: AgentState) -> dict:
         "timestamp": datetime.now().isoformat(),
     }
 
-    client = AsyncGroq(api_key=settings.GROQ_API_KEY)
-
     file_paths_str = "\n".join(
         "- {}".format(p) for p in state.get("dataset_file_paths", [])
     )
@@ -71,8 +68,7 @@ async def code_generator_node(state: AgentState) -> dict:
         retry_info,
     )
 
-    response = await client.chat.completions.create(
-        model=settings.GROQ_MODEL,
+    code = await llm_completion(
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_msg},
@@ -80,8 +76,6 @@ async def code_generator_node(state: AgentState) -> dict:
         temperature=0.1,
         max_tokens=4096,
     )
-
-    code = response.choices[0].message.content.strip()
     # Clean markdown code fences if present
     if code.startswith("```"):
         lines = code.split("\n")

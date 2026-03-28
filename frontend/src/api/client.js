@@ -1,5 +1,85 @@
 const API_BASE = '/api';
 
+// ── LLM Provider API ──
+
+export async function getLLMProviders() {
+  const res = await fetch(`${API_BASE}/llm/providers`);
+  if (!res.ok) throw new Error('Failed to fetch LLM providers');
+  return res.json();
+}
+
+export async function configureLLMProvider(provider, apiKey, model, extra = {}) {
+  const res = await fetch(`${API_BASE}/llm/configure`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider, api_key: apiKey, model, extra }),
+  });
+  if (!res.ok) throw new Error('Failed to configure provider');
+  return res.json();
+}
+
+export async function activateLLMProvider(provider) {
+  const res = await fetch(`${API_BASE}/llm/activate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider }),
+  });
+  if (!res.ok) throw new Error('Failed to activate provider');
+  return res.json();
+}
+
+export async function deleteLLMProvider(providerId) {
+  const res = await fetch(`${API_BASE}/llm/providers/${providerId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to delete provider');
+  return res.json();
+}
+
+export async function testLLMProvider(provider, apiKey, model, extra = {}) {
+  const res = await fetch(`${API_BASE}/llm/test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider, api_key: apiKey, model, extra }),
+  });
+  if (!res.ok) throw new Error('Failed to test provider');
+  return res.json();
+}
+
+// ── Data Operations API ──
+
+export async function getSessionColumns(sessionId) {
+  const res = await fetch(`${API_BASE}/data/columns/${sessionId}`);
+  if (!res.ok) throw new Error('Failed to fetch columns');
+  return res.json();
+}
+
+export async function previewOperation(sessionId, operation, params) {
+  const res = await fetch(`${API_BASE}/data/operations/preview`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: sessionId, operation, params }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || 'Operation failed');
+  }
+  return res.json();
+}
+
+export async function saveOperationResult(sessionId, operation, params, name) {
+  const res = await fetch(`${API_BASE}/data/operations/save`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: sessionId, operation, params, name }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || 'Save failed');
+  }
+  return res.json();
+}
+
 export async function uploadFiles(files, sessionId = null) {
   const formData = new FormData();
   for (const file of files) {

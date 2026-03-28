@@ -1,7 +1,6 @@
 import json
 from datetime import datetime
-from groq import AsyncGroq
-from config import settings
+from services.llm_client import llm_completion
 from agents.state import AgentState
 
 SYSTEM_PROMPT = """You are an orchestration agent for a data analytics chatbot. Your ONLY job is to route the user's query to the correct agent.
@@ -31,8 +30,6 @@ async def orchestrator_node(state: AgentState) -> dict:
         "timestamp": datetime.now().isoformat(),
     }
 
-    client = AsyncGroq(api_key=settings.GROQ_API_KEY)
-
     context_status = "available" if state.get("dataset_context") else "not available"
     file_count = len(state.get("dataset_file_paths", []))
 
@@ -40,8 +37,7 @@ async def orchestrator_node(state: AgentState) -> dict:
         state["user_query"], file_count, context_status, state.get("dataset_file_paths", [])
     )
 
-    response = await client.chat.completions.create(
-        model=settings.GROQ_MODEL,
+    text = await llm_completion(
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_msg},
@@ -51,7 +47,6 @@ async def orchestrator_node(state: AgentState) -> dict:
     )
 
     try:
-        text = response.choices[0].message.content.strip()
         if text.startswith("```"):
             text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
         result = json.loads(text)

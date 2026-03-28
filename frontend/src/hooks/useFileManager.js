@@ -39,6 +39,17 @@ export function useFileManager() {
     }
   }, [sessionId]);
 
+  const addFile = useCallback((fileInfo) => {
+    setFiles((prev) => {
+      const existing = new Map(prev.map((f) => [f.filename, f]));
+      existing.set(fileInfo.filename, fileInfo);
+      return Array.from(existing.values());
+    });
+    if (fileInfo.cleaning_report) {
+      setCleaningReports((prev) => ({ ...prev, [fileInfo.filename]: fileInfo.cleaning_report }));
+    }
+  }, []);
+
   const removeFile = useCallback(async (filename) => {
     if (!sessionId) return;
     try {
@@ -60,6 +71,7 @@ export function useFileManager() {
     uploading,
     error,
     upload,
+    addFile,
     removeFile,
     cleaningReports,
     relationships,

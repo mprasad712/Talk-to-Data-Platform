@@ -1,6 +1,5 @@
 from datetime import datetime
-from groq import AsyncGroq
-from config import settings
+from services.llm_client import llm_completion
 from agents.state import AgentState
 from services.file_manager import get_relationships
 
@@ -26,8 +25,6 @@ async def synthesizer_node(state: AgentState) -> dict:
         "message": "Preparing your answer with business insights...",
         "timestamp": datetime.now().isoformat(),
     }
-
-    client = AsyncGroq(api_key=settings.GROQ_API_KEY)
 
     # Handle different scenarios
     if state.get("execution_result"):
@@ -69,8 +66,7 @@ async def synthesizer_node(state: AgentState) -> dict:
             state["user_query"],
         )
 
-    response = await client.chat.completions.create(
-        model=settings.GROQ_MODEL,
+    final_answer = await llm_completion(
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_msg},
@@ -78,8 +74,6 @@ async def synthesizer_node(state: AgentState) -> dict:
         temperature=0.3,
         max_tokens=2048,
     )
-
-    final_answer = response.choices[0].message.content.strip()
 
     done_entry = {
         "agent": "synthesizer",

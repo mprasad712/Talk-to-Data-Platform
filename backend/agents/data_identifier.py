@@ -1,7 +1,6 @@
 import json
 from datetime import datetime
-from groq import AsyncGroq
-from config import settings
+from services.llm_client import llm_completion
 from agents.state import AgentState
 from services.file_manager import get_file_schemas, set_dataset_context, set_relationships
 
@@ -69,12 +68,10 @@ async def data_identifier_node(state: AgentState) -> dict:
             "thought_trace": [trace_entry, done_entry],
         }
 
-    client = AsyncGroq(api_key=settings.GROQ_API_KEY)
     schema_text = json.dumps(schemas, indent=2)
 
     # Call 1: Schema analysis
-    response = await client.chat.completions.create(
-        model=settings.GROQ_MODEL,
+    dataset_context = await llm_completion(
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": "Here are the schemas for the uploaded datasets:\n\n" + schema_text},
@@ -82,8 +79,6 @@ async def data_identifier_node(state: AgentState) -> dict:
         temperature=0,
         max_tokens=4096,
     )
-
-    dataset_context = response.choices[0].message.content.strip()
     if dataset_context.startswith("```"):
         dataset_context = dataset_context.split("\n", 1)[1].rsplit("```", 1)[0].strip()
 
@@ -93,8 +88,7 @@ async def data_identifier_node(state: AgentState) -> dict:
     # Call 2: Relationship detection (only if multiple files)
     relationships = []
     if len(schemas) > 1:
-        rel_response = await client.chat.completions.create(
-            model=settings.GROQ_MODEL,
+        rel_text = await llm_completion(
             messages=[
                 {"role": "system", "content": RELATIONSHIP_PROMPT},
                 {"role": "user", "content": "Detect relationships between these datasets:\n\n" + schema_text},
@@ -102,8 +96,6 @@ async def data_identifier_node(state: AgentState) -> dict:
             temperature=0,
             max_tokens=2048,
         )
-
-        rel_text = rel_response.choices[0].message.content.strip()
         if rel_text.startswith("```"):
             rel_text = rel_text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
 
