@@ -6,6 +6,8 @@ export function useFileManager() {
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
+  const [cleaningReports, setCleaningReports] = useState({});
+  const [relationships, setRelationships] = useState([]);
 
   const upload = useCallback(async (fileList) => {
     setUploading(true);
@@ -20,6 +22,14 @@ export function useFileManager() {
         }
         return Array.from(existing.values());
       });
+      // Store cleaning reports
+      const reports = {};
+      for (const f of result.files) {
+        if (f.cleaning_report) {
+          reports[f.filename] = f.cleaning_report;
+        }
+      }
+      setCleaningReports((prev) => ({ ...prev, ...reports }));
       return result;
     } catch (e) {
       setError(e.message);
@@ -34,6 +44,11 @@ export function useFileManager() {
     try {
       await deleteDataset(sessionId, filename);
       setFiles((prev) => prev.filter((f) => f.filename !== filename));
+      setCleaningReports((prev) => {
+        const next = { ...prev };
+        delete next[filename];
+        return next;
+      });
     } catch (e) {
       setError(e.message);
     }
@@ -46,5 +61,8 @@ export function useFileManager() {
     error,
     upload,
     removeFile,
+    cleaningReports,
+    relationships,
+    setRelationships,
   };
 }

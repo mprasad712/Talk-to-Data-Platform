@@ -36,6 +36,7 @@ async def code_executor_node(state: AgentState) -> dict:
         }
         return {
             "execution_result": result["result"],
+            "execution_result_markdown": result.get("result_markdown"),
             "execution_error": None,
             "thought_trace": [trace_entry, done_entry],
         }

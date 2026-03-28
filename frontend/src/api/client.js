@@ -59,7 +59,7 @@ function parseSSEEvents(text) {
   return events;
 }
 
-export function streamChat(sessionId, query, onThought, onCode, onAnswer, onError, onDone) {
+export function streamChat(sessionId, query, onThought, onCode, onAnswer, onError, onDone, onRelationships) {
   const controller = new AbortController();
   let doneEmitted = false;
 
@@ -108,6 +108,9 @@ export function streamChat(sessionId, query, onThought, onCode, onAnswer, onErro
               case 'answer':
                 onAnswer(data);
                 break;
+              case 'relationships':
+                if (onRelationships) onRelationships(data);
+                break;
               case 'error':
                 onError(data);
                 break;
@@ -132,6 +135,7 @@ export function streamChat(sessionId, query, onThought, onCode, onAnswer, onErro
               case 'thought': onThought(data); break;
               case 'code': onCode(data); break;
               case 'answer': onAnswer(data); break;
+              case 'relationships': if (onRelationships) onRelationships(data); break;
               case 'error': onError(data); break;
               case 'done': doneEmitted = true; onDone(); break;
             }

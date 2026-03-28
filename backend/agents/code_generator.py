@@ -9,12 +9,23 @@ STRICT RULES:
 1. Use ONLY pandas (imported as pd) and numpy (imported as np). No other libraries.
 2. Read CSV files from the EXACT file paths provided. Use encoding='utf-8', errors='replace' for read_csv.
 3. Store your FINAL answer in a variable called `RESULT`. This is mandatory.
-4. RESULT should be a meaningful output: a DataFrame, Series, number, or string that directly answers the question.
-5. Handle potential issues: NaN values, type conversions, case-insensitive matching where appropriate.
-6. DO NOT use print() for the final answer - assign to RESULT instead.
-7. When joining datasets, use the join keys identified in the dataset context.
-8. For revenue/monetary calculations, ensure the column is numeric (use pd.to_numeric with errors='coerce').
-9. If a column might have mixed types, clean it before using it.
+4. RESULT should be a meaningful output: a DataFrame (preferred for tabular data), Series, number, or string.
+5. DO NOT use print() for the final answer - assign to RESULT instead.
+6. When joining datasets, use the join keys identified in the dataset context.
+
+DATA QUALITY — ALWAYS do this after reading each CSV:
+- Drop rows where ALL values are NaN: df.dropna(how='all', inplace=True)
+- For the columns you're analyzing, drop rows where those specific columns are NaN/blank
+- Convert monetary/numeric columns: pd.to_numeric(df[col], errors='coerce')
+- Strip whitespace from string columns: df[col] = df[col].str.strip()
+- Filter out blank/empty string values from groupby or filter columns
+- When user asks "top N", return EXACTLY N rows (use .head(N))
+
+RESULT FORMAT:
+- For "top N" or "list" queries: return a DataFrame with clear column names, sorted appropriately
+- For single values: return the value directly
+- For summaries: return a DataFrame with labeled rows/columns
+- Reset index before assigning to RESULT so the table looks clean: RESULT = df.reset_index(drop=True) or RESULT = df.reset_index()
 
 OUTPUT FORMAT:
 Return ONLY the Python code, no explanations. Do not wrap in markdown code fences.
@@ -24,7 +35,10 @@ import pandas as pd
 import numpy as np
 
 df = pd.read_csv("path/to/file.csv", encoding="utf-8", errors="replace")
-RESULT = df.groupby("Category")["Revenue"].sum().sort_values(ascending=False).head(10)
+df.dropna(how='all', inplace=True)
+df['Revenue'] = pd.to_numeric(df['Revenue'], errors='coerce')
+df = df.dropna(subset=['Revenue'])
+RESULT = df.nlargest(10, 'Revenue')[['Company', 'Revenue']].reset_index(drop=True)
 """
 
 

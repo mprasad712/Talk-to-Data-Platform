@@ -6,6 +6,7 @@ from services.file_manager import (
     get_file_schemas,
     delete_file,
     get_session,
+    get_relationships,
 )
 from typing import Optional, List
 
@@ -23,6 +24,7 @@ async def upload_files(
         content = await f.read()
         info = save_file(sid, f.filename, content)
         results.append(info)
+
     return {"session_id": sid, "files": results}
 
 
@@ -35,7 +37,8 @@ async def list_datasets(session_id: str):
     files = []
     for name, schema in schemas.items():
         files.append({"filename": name, **schema})
-    return {"session_id": session_id, "files": files}
+    relationships = get_relationships(session_id)
+    return {"session_id": session_id, "files": files, "relationships": relationships}
 
 
 @router.delete("/datasets/{session_id}/{filename}")

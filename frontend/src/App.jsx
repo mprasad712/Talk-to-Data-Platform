@@ -1,43 +1,48 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import Layout from './components/Layout';
-import FilePanel from './components/FilePanel';
-import ChatPanel from './components/ChatPanel';
-import ThoughtTrace from './components/ThoughtTrace';
 import { useFileManager } from './hooks/useFileManager';
 import { useChat } from './hooks/useChat';
 
 export default function App() {
   const fileManager = useFileManager();
-  const chat = useChat(fileManager.sessionId);
+  const chat = useChat(fileManager.sessionId, fileManager.setRelationships);
+
+  // Chat sessions (frontend-only for now)
+  const [sessions, setSessions] = useState([]);
+  const [activeSessionIdx, setActiveSessionIdx] = useState(null);
+
+  // Memory settings
+  const [memorySettings, setMemorySettings] = useState({
+    shortTerm: true,    // remember context within session
+    longTerm: false,    // persist across sessions
+    autoSummarize: true, // auto-summarize long conversations
+  });
+
+  // Save current chat as a session
+  const saveSession = useCallback(() => {
+    if (chat.messages.length === 0) return;
+    const name = chat.messages[0]?.content?.slice(0, 40) || 'New session';
+    const newSession = {
+      id: Date.now(),
+      name,
+      messages: [...chat.messages],
+      thoughts: [...chat.thoughts],
+      timestamp: new Date().toISOString(),
+    };
+    setSessions(prev => [...prev, newSession]);
+    setActiveSessionIdx(sessions.length);
+  }, [chat.messages, chat.thoughts, sessions.length]);
 
   return (
     <Layout
-      filePanel={
-        <FilePanel
-          files={fileManager.files}
-          uploading={fileManager.uploading}
-          error={fileManager.error}
-          onUpload={fileManager.upload}
-          onRemove={fileManager.removeFile}
-          sessionId={fileManager.sessionId}
-        />
-      }
-      chatPanel={
-        <ChatPanel
-          messages={chat.messages}
-          isStreaming={chat.isStreaming}
-          onSend={chat.sendMessage}
-          onStop={chat.stopStreaming}
-          hasFiles={fileManager.files.length > 0}
-          generatedCode={chat.generatedCode}
-        />
-      }
-      thoughtTrace={
-        <ThoughtTrace
-          thoughts={chat.thoughts}
-          isStreaming={chat.isStreaming}
-        />
-      }
+      fileManager={fileManager}
+      chat={chat}
+      sessions={sessions}
+      activeSessionIdx={activeSessionIdx}
+      onSelectSession={setActiveSessionIdx}
+      onSaveSession={saveSession}
+      memorySettings={memorySettings}
+      onMemorySettingsChange={setMemorySettings}
     />
   );
 }

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import traceback
@@ -5,7 +6,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 from agents.graph import agent_graph
-from services.file_manager import get_file_paths, get_dataset_context, get_session
+from services.file_manager import get_file_paths, get_dataset_context, get_session, get_relationships
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -41,6 +42,7 @@ async def chat(request: ChatRequest):
         "next_agent": None,
         "generated_code": None,
         "execution_result": None,
+        "execution_result_markdown": None,
         "execution_error": None,
         "is_valid": None,
         "validation_feedback": None,
@@ -50,8 +52,14 @@ async def chat(request: ChatRequest):
     }
 
     async def event_generator():
+        # Initial ping to flush proxy buffers and confirm connection
+        yield {"event": "ping", "data": "{}"}
+        await asyncio.sleep(0)
+
         try:
             logger.info("Starting agent graph for query: %s", request.query)
+            table_markdown = None
+
             async for event in agent_graph.astream(
                 initial_state,
                 stream_mode="updates",
@@ -69,6 +77,17 @@ async def chat(request: ChatRequest):
                             "event": "thought",
                             "data": json.dumps(trace),
                         }
+                        await asyncio.sleep(0)
+
+                    # After data_identifier runs, send LLM-detected relationships
+                    if node_name == "data_identifier" and update.get("dataset_context"):
+                        rels = get_relationships(request.session_id)
+                        if rels:
+                            yield {
+                                "event": "relationships",
+                                "data": json.dumps(rels),
+                            }
+                            await asyncio.sleep(0)
 
                     # Stream generated code if available
                     if update.get("generated_code"):
@@ -78,15 +97,25 @@ async def chat(request: ChatRequest):
                                 "code": update["generated_code"],
                             }),
                         }
+                        await asyncio.sleep(0)
 
-                    # Stream final answer
+                    # Capture execution result table to combine with answer
+                    if update.get("execution_result_markdown"):
+                        table_markdown = update["execution_result_markdown"]
+
+                    # Stream final answer — prepend table if available
                     if update.get("final_answer"):
+                        answer = update["final_answer"]
+                        if table_markdown:
+                            answer = table_markdown + "\n\n---\n\n" + answer
+                            table_markdown = None
                         yield {
                             "event": "answer",
                             "data": json.dumps({
-                                "content": update["final_answer"],
+                                "content": answer,
                             }),
                         }
+                        await asyncio.sleep(0)
 
         except Exception as e:
             error_msg = str(e)
@@ -103,4 +132,13 @@ async def chat(request: ChatRequest):
             "data": "{}",
         }
 
-    return EventSourceResponse(event_generator())
+    return EventSourceResponse(
+        event_generator(),
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+        sep="\n",
+        ping=3,
+    )

@@ -1,22 +1,28 @@
 import { useState, useCallback, useRef } from 'react';
 import { streamChat } from '../api/client';
 
-export function useChat(sessionId) {
+export function useChat(sessionId, onRelationshipsDetected) {
   const [messages, setMessages] = useState([]);
   const [thoughts, setThoughts] = useState([]);
   const [generatedCode, setGeneratedCode] = useState(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const controllerRef = useRef(null);
+  const pendingTableRef = useRef(null);
 
   const sendMessage = useCallback(
     (query) => {
       if (!sessionId || !query.trim() || isStreaming) return;
 
-      // Add user message
-      setMessages((prev) => [...prev, { role: 'user', content: query }]);
+      // Add user message and a placeholder assistant message
+      setMessages((prev) => [
+        ...prev,
+        { role: 'user', content: query },
+        { role: 'assistant', content: '', isPlaceholder: true },
+      ]);
       setThoughts([]);
       setGeneratedCode(null);
       setIsStreaming(true);
+      pendingTableRef.current = null;
 
       controllerRef.current = streamChat(
         sessionId,
@@ -29,37 +35,66 @@ export function useChat(sessionId) {
         (data) => {
           setGeneratedCode(data.code);
         },
-        // onAnswer
+        // onAnswer — update the placeholder assistant message (never add a new one)
         (data) => {
-          setMessages((prev) => [
-            ...prev,
-            { role: 'assistant', content: data.content },
-          ]);
+          setMessages((prev) => {
+            const updated = [...prev];
+            // Find the last assistant placeholder or assistant message
+            for (let i = updated.length - 1; i >= 0; i--) {
+              if (updated[i].role === 'assistant' && !updated[i].isError) {
+                updated[i] = {
+                  role: 'assistant',
+                  content: data.content,
+                  isPlaceholder: false,
+                };
+                return updated;
+              }
+            }
+            // Fallback: add new message
+            return [...prev, { role: 'assistant', content: data.content }];
+          });
         },
         // onError
         (data) => {
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: 'assistant',
-              content: `Error: ${data.message}`,
-              isError: true,
-            },
-          ]);
+          setMessages((prev) => {
+            // Replace placeholder with error
+            const updated = [...prev];
+            for (let i = updated.length - 1; i >= 0; i--) {
+              if (updated[i].role === 'assistant' && updated[i].isPlaceholder) {
+                updated[i] = {
+                  role: 'assistant',
+                  content: `Error: ${data.message}`,
+                  isError: true,
+                };
+                return updated;
+              }
+            }
+            return [
+              ...prev,
+              { role: 'assistant', content: `Error: ${data.message}`, isError: true },
+            ];
+          });
           setIsStreaming(false);
         },
         // onDone
         () => {
+          // Remove placeholder if still empty
+          setMessages((prev) => prev.filter((m) => !m.isPlaceholder));
           setIsStreaming(false);
+        },
+        // onRelationships
+        (data) => {
+          if (onRelationshipsDetected) onRelationshipsDetected(data);
         }
       );
     },
-    [sessionId, isStreaming]
+    [sessionId, isStreaming, onRelationshipsDetected]
   );
 
   const stopStreaming = useCallback(() => {
     if (controllerRef.current) {
       controllerRef.current.abort();
+      setMessages((prev) => prev.filter((m) => !m.isPlaceholder));
       setIsStreaming(false);
     }
   }, []);

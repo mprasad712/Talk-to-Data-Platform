@@ -23,6 +23,7 @@ class AgentState(TypedDict):
 
     # Code Executor output
     execution_result: Optional[str]  # Stringified result
+    execution_result_markdown: Optional[str]  # Markdown table for display
     execution_error: Optional[str]  # Traceback if exec failed
 
     # Validator output
