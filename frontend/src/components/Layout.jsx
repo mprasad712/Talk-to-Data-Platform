@@ -239,7 +239,6 @@ export default function Layout({
             isStreaming={chat.isStreaming}
             onSend={chat.sendMessage}
             onStop={chat.stopStreaming}
-            hasFiles={fileManager.files.length > 0}
             generatedCode={chat.generatedCode}
             files={fileManager.files}
             relationships={fileManager.relationships}

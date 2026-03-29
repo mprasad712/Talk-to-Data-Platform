@@ -33,6 +33,8 @@ const FILTER_OPS = [
 
 const AGG_FUNCTIONS = ['sum', 'mean', 'count', 'min', 'max', 'nunique'];
 
+const WB_ROWS_PER_PAGE = 25;
+
 export default function DataWorkbench({ files, sessionId, onFileAdded }) {
   const [selectedOp, setSelectedOp] = useState(null);
   const [columnsMap, setColumnsMap] = useState({});
@@ -41,6 +43,7 @@ export default function DataWorkbench({ files, sessionId, onFileAdded }) {
   const [preview, setPreview] = useState(null);
   const [saving, setSaving] = useState(false);
   const [lastParams, setLastParams] = useState(null);
+  const [wbPage, setWbPage] = useState(0);
 
   // Fetch all columns when files change
   useEffect(() => {
@@ -54,6 +57,7 @@ export default function DataWorkbench({ files, sessionId, onFileAdded }) {
     setLoading(true);
     setError(null);
     setPreview(null);
+    setWbPage(0);
     setLastParams({ operation, params });
     try {
       const result = await previewOperation(sessionId, operation, params);
@@ -81,21 +85,33 @@ export default function DataWorkbench({ files, sessionId, onFileAdded }) {
     }
   };
 
-  const handleDownload = () => {
-    if (!preview?.preview) return;
-    const cols = preview.columns.map(c => c.name);
-    const rows = preview.preview.map(row => cols.map(c => {
-      const val = String(row[c] ?? '');
-      return val.includes(',') ? `"${val}"` : val;
-    }).join(','));
-    const csv = [cols.join(','), ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${preview.name}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleDownload = async () => {
+    if (!preview || !lastParams) return;
+    try {
+      const res = await fetch('/api/data/operations/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: sessionId,
+          operation: lastParams.operation,
+          params: lastParams.params,
+          name: preview.name,
+        }),
+      });
+      if (!res.ok) throw new Error('Download failed');
+      const text = await res.text();
+      const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${preview.name}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError('Download failed: ' + e.message);
+    }
   };
 
   if (files.length === 0) {
@@ -156,34 +172,72 @@ export default function DataWorkbench({ files, sessionId, onFileAdded }) {
 
         {/* Preview table */}
         <div className="flex-1 overflow-auto">
-          <table className="w-full text-[11px]" style={{ borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: 'var(--bg-surface)', position: 'sticky', top: 0, zIndex: 1 }}>
-                {preview.columns.map(col => (
-                  <th key={col.name} className="whitespace-nowrap px-2.5 py-2 text-left font-semibold" style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)' }}>
-                    {col.name}
-                    <span className="ml-1 text-[9px] font-normal" style={{ color: 'var(--text-faint)' }}>{col.dtype}</span>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {preview.preview.map((row, i) => (
-                <tr key={i} style={{ borderBottom: '1px solid var(--border-color)' }}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[11px]" style={{ borderCollapse: 'collapse', minWidth: preview.columns.length > 5 ? `${preview.columns.length * 140}px` : undefined }}>
+              <thead>
+                <tr style={{ background: 'var(--bg-surface)', position: 'sticky', top: 0, zIndex: 1 }}>
                   {preview.columns.map(col => (
-                    <td key={col.name} className="whitespace-nowrap px-2.5 py-1.5" style={{ color: 'var(--text-muted)' }}>
-                      {String(row[col.name] ?? '')}
-                    </td>
+                    <th key={col.name} className="whitespace-nowrap px-2.5 py-2 text-left font-semibold" style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+                      {col.name}
+                      <span className="ml-1 text-[9px] font-normal" style={{ color: 'var(--text-faint)' }}>{col.dtype}</span>
+                    </th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          {preview.row_count > 50 && (
-            <p className="px-3 py-2 text-center text-[10px]" style={{ color: 'var(--text-faint)' }}>
-              Showing 50 of {preview.row_count.toLocaleString()} rows
-            </p>
-          )}
+              </thead>
+              <tbody>
+                {preview.preview.slice(wbPage * WB_ROWS_PER_PAGE, (wbPage + 1) * WB_ROWS_PER_PAGE).map((row, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                    {preview.columns.map(col => (
+                      <td key={col.name} className="whitespace-nowrap px-2.5 py-1.5" style={{ color: 'var(--text-muted)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {String(row[col.name] ?? '')}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {(() => {
+            const totalRows = preview.preview.length;
+            const totalPages = Math.ceil(totalRows / WB_ROWS_PER_PAGE);
+            return totalPages > 1 ? (
+              <div
+                className="flex items-center justify-between px-3 py-2"
+                style={{ borderTop: '1px solid var(--border-color)', background: 'var(--bg-surface)' }}
+              >
+                <span className="text-[10px] font-medium" style={{ color: 'var(--text-faint)' }}>
+                  {(wbPage * WB_ROWS_PER_PAGE + 1).toLocaleString()}-{Math.min((wbPage + 1) * WB_ROWS_PER_PAGE, totalRows).toLocaleString()} of {totalRows.toLocaleString()} rows
+                </span>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setWbPage(p => Math.max(0, p - 1))}
+                    disabled={wbPage === 0}
+                    className="rounded px-2 py-0.5 text-[10px] font-medium transition-all disabled:opacity-30"
+                    style={{ background: 'var(--bg-overlay)', color: 'var(--text-muted)' }}
+                  >
+                    Prev
+                  </button>
+                  <span className="px-1 text-[10px] font-medium" style={{ color: 'var(--text-faint)', lineHeight: '22px' }}>
+                    {wbPage + 1}/{totalPages}
+                  </span>
+                  <button
+                    onClick={() => setWbPage(p => Math.min(totalPages - 1, p + 1))}
+                    disabled={wbPage >= totalPages - 1}
+                    className="rounded px-2 py-0.5 text-[10px] font-medium transition-all disabled:opacity-30"
+                    style={{ background: 'var(--bg-overlay)', color: 'var(--text-muted)' }}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="px-3 py-2 text-center text-[10px]" style={{ color: 'var(--text-faint)' }}>
+                {totalRows.toLocaleString()} rows
+              </p>
+            );
+          })()}
         </div>
       </div>
     );

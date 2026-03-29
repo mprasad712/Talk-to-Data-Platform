@@ -45,6 +45,8 @@ export function useChat(sessionId, onRelationshipsDetected) {
                 updated[i] = {
                   role: 'assistant',
                   content: data.content,
+                  csv: data.csv || null,
+                  citations: data.citations || null,
                   isPlaceholder: false,
                   timestamp: Date.now(),
                 };
@@ -52,7 +54,7 @@ export function useChat(sessionId, onRelationshipsDetected) {
               }
             }
             // Fallback: add new message
-            return [...prev, { role: 'assistant', content: data.content, timestamp: Date.now() }];
+            return [...prev, { role: 'assistant', content: data.content, csv: data.csv || null, citations: data.citations || null, timestamp: Date.now() }];
           });
         },
         // onError

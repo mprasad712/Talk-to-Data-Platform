@@ -1,14 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useToast } from './Toast';
 import MessageFeedback from './MessageFeedback';
+import CitationModal from './CitationModal';
+
+const ROWS_PER_PAGE = 25;
+
+const CITATION_COLORS = {
+  source: { color: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },
+  columns: { color: '#a855f7', bg: 'rgba(168,85,247,0.1)' },
+  operations: { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+  output: { color: '#22c55e', bg: 'rgba(34,197,94,0.1)' },
+};
 
 export default function ChatMessage({ message, index }) {
   const isUser = message.role === 'user';
   const isError = message.isError;
   const { addToast } = useToast();
   const [hovering, setHovering] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [showCitations, setShowCitations] = useState(false);
 
   const copyContent = () => {
     navigator.clipboard.writeText(message.content);
@@ -16,6 +28,19 @@ export default function ChatMessage({ message, index }) {
   };
 
   const downloadTable = () => {
+    // Use full CSV data from backend if available
+    if (message.csv) {
+      const blob = new Blob([message.csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'bcn-result.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+      addToast('Full dataset downloaded as CSV');
+      return;
+    }
+    // Fallback: parse from markdown
     const { tableMarkdown } = splitTableAndText(message.content);
     if (!tableMarkdown) return;
     const rows = tableMarkdown.split('\n').filter(l => l.trim() && !l.includes('---'));
@@ -49,6 +74,25 @@ export default function ChatMessage({ message, index }) {
   }
 
   const { tableMarkdown, textContent } = splitTableAndText(message.content);
+
+  // Parse table rows for pagination
+  const tableData = useMemo(() => {
+    if (!tableMarkdown) return null;
+    const lines = tableMarkdown.split('\n').filter(l => l.trim());
+    if (lines.length < 2) return null;
+    const headerLine = lines[0];
+    const dataLines = lines.filter(l => !l.includes('---') && l !== headerLine);
+    const headers = headerLine.split('|').filter(c => c.trim()).map(c => c.trim());
+    const rows = dataLines.map(l => l.split('|').filter(c => c.trim()).map(c => c.trim()));
+    return { headers, rows };
+  }, [tableMarkdown]);
+
+  const totalPages = tableData ? Math.ceil(tableData.rows.length / ROWS_PER_PAGE) : 0;
+  const paginatedRows = tableData ? tableData.rows.slice(currentPage * ROWS_PER_PAGE, (currentPage + 1) * ROWS_PER_PAGE) : [];
+
+  // Check if there's a "Showing top X of Y rows" note
+  const truncationNote = tableMarkdown && tableMarkdown.match(/\*Showing top \d+ of ([\d,]+) rows\*/);
+  const totalRowCount = truncationNote ? truncationNote[1] : (tableData ? String(tableData.rows.length) : '0');
 
   return (
     <div
@@ -121,7 +165,7 @@ export default function ChatMessage({ message, index }) {
 
         {!isError && (
           <>
-            {tableMarkdown && (
+            {tableData && (
               <div
                 className="mb-3 overflow-hidden rounded-xl"
                 style={{ border: '1px solid var(--border-color)' }}
@@ -136,6 +180,9 @@ export default function ChatMessage({ message, index }) {
                     </svg>
                   </div>
                   <span className="text-[11.5px] font-bold uppercase tracking-wider" style={{ color: 'var(--blue)' }}>Data Result</span>
+                  <span className="text-[10.5px] font-medium" style={{ color: 'var(--text-faint)' }}>
+                    {totalRowCount} rows
+                  </span>
                   <div className="flex-1" />
                   <button
                     onClick={downloadTable}
@@ -149,10 +196,57 @@ export default function ChatMessage({ message, index }) {
                   </button>
                 </div>
                 <div className="overflow-x-auto" style={{ background: 'var(--bg-raised)' }}>
-                  <div className="prose max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{tableMarkdown}</ReactMarkdown>
-                  </div>
+                  <table className="w-full text-[13px]">
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
+                        {tableData.headers.map((h, i) => (
+                          <th key={i} className="px-4 py-2.5 text-left font-semibold uppercase tracking-wider text-[11px]" style={{ color: 'var(--text-muted)' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedRows.map((row, ri) => (
+                        <tr key={ri} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                          {row.map((cell, ci) => (
+                            <td key={ci} className="px-4 py-2" style={{ color: 'var(--text-secondary)' }}>
+                              {cell || <span style={{ color: 'var(--text-faint)' }}>(blank)</span>}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div
+                    className="flex items-center justify-between px-4 py-2"
+                    style={{ background: 'var(--bg-surface)', borderTop: '1px solid var(--border-color)' }}
+                  >
+                    <span className="text-[11px] font-medium" style={{ color: 'var(--text-faint)' }}>
+                      Page {currentPage + 1} of {totalPages}
+                    </span>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                        disabled={currentPage === 0}
+                        className="rounded px-2 py-1 text-[11px] font-medium transition-all disabled:opacity-30"
+                        style={{ background: 'var(--bg-overlay)', color: 'var(--text-muted)' }}
+                      >
+                        Prev
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                        disabled={currentPage >= totalPages - 1}
+                        className="rounded px-2 py-1 text-[11px] font-medium transition-all disabled:opacity-30"
+                        style={{ background: 'var(--bg-overlay)', color: 'var(--text-muted)' }}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -166,9 +260,37 @@ export default function ChatMessage({ message, index }) {
                 </div>
               </div>
             )}
+
+            {/* Citation pills */}
+            {message.citations && message.citations.length > 0 && (
+              <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-ghost)' }}>Sources</span>
+                {message.citations.map((c, ci) => {
+                  const cc = CITATION_COLORS[c.type] || CITATION_COLORS.source;
+                  return (
+                    <button
+                      key={ci}
+                      onClick={() => setShowCitations(true)}
+                      className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium transition-all hover:scale-105"
+                      style={{ background: cc.bg, color: cc.color, border: `1px solid ${cc.bg}` }}
+                    >
+                      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold" style={{ background: cc.color, color: '#fff' }}>
+                        {ci + 1}
+                      </span>
+                      {c.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
       </div>
+
+      {/* Citation Modal */}
+      {showCitations && (
+        <CitationModal citations={message.citations} onClose={() => setShowCitations(false)} />
+      )}
     </div>
   );
 }

@@ -40,7 +40,7 @@ export default function Sidebar({
     <div className="flex w-[310px] shrink-0 flex-col" style={{ borderRight: '1px solid var(--border-color)', background: 'var(--bg-surface)' }}>
       {/* Tabs */}
       <div className="flex shrink-0 gap-0.5 px-2 pt-2" style={{ borderBottom: '1px solid var(--border-color)' }}>
-        {['files', 'workbench', 'sessions', 'llm', 'memory'].map(t => (
+        {['files', 'workbench', 'sessions', 'llm'].map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}

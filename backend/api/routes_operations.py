@@ -1,10 +1,13 @@
 """API routes for data operations (join, union, filter, group, sort, deduplicate, column tools)."""
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Any, Dict, List, Optional
-from services.data_operations import OPERATIONS, save_operation_result
+from io import StringIO
+from services.data_operations import OPERATIONS, _execute_operation, save_operation_result
 from services.file_manager import get_session
+import pandas as pd
 
 router = APIRouter()
 
@@ -60,6 +63,58 @@ async def save_result(req: SaveResultRequest):
         raise HTTPException(400, str(e))
     except Exception as e:
         raise HTTPException(500, f"Save failed: {str(e)}")
+
+
+class DownloadOperationRequest(BaseModel):
+    session_id: str
+    operation: str
+    params: Dict[str, Any]
+    name: str
+
+
+@router.post("/data/operations/download")
+async def download_operation_result(req: DownloadOperationRequest):
+    """Re-run operation and return full CSV for download."""
+    session = get_session(req.session_id)
+    if not session:
+        raise HTTPException(404, "Session not found")
+
+    try:
+        df = _execute_operation(req.session_id, req.operation, req.params)
+        csv_buf = StringIO()
+        df.to_csv(csv_buf, index=False)
+        csv_buf.seek(0)
+        return StreamingResponse(
+            csv_buf,
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="{req.name}.csv"'},
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Download failed: {str(e)}")
+
+
+@router.get("/data/download/{session_id}/{filename}")
+async def download_file(session_id: str, filename: str):
+    """Download the full CSV file from the session."""
+    session = get_session(session_id)
+    if not session:
+        raise HTTPException(404, "Session not found")
+
+    file_info = session["files"].get(filename)
+    if not file_info:
+        raise HTTPException(404, f"File not found: {filename}")
+
+    file_path = file_info["path"]
+    df = pd.read_csv(file_path, encoding="utf-8", errors="replace")
+    csv_buf = StringIO()
+    df.to_csv(csv_buf, index=False)
+    csv_buf.seek(0)
+
+    return StreamingResponse(
+        csv_buf,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/data/columns/{session_id}")

@@ -13,8 +13,8 @@ You have these agents available:
 Rules (follow in order):
 - If NO files are uploaded: route to "synthesizer" (to explain they need to upload files)
 - If files are uploaded AND dataset_context is null/empty: ALWAYS route to "data_identifier" first, regardless of the question. The data must be analyzed before any question can be answered.
-- If dataset_context exists AND the user asks about their data (describe, list, "what data do I have?", "show relationships", "how do files connect"): route to "synthesizer"
-- If dataset_context exists AND the user asks an analytical question: route to "code_generator"
+- If dataset_context exists AND the question is about the structure of the uploaded files (schema, columns, relationships between files): route to "synthesizer"
+- If dataset_context exists AND the question requires looking at actual values, rows, or content within the data: route to "code_generator". When in doubt between synthesizer and code_generator, prefer "code_generator" — it is better to run code and give a precise answer than to guess from schema metadata.
 - If the user asks a pure greeting/help question with no data aspect: route to "synthesizer"
 
 Respond with ONLY a JSON object:

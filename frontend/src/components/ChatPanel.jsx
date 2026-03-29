@@ -4,8 +4,10 @@ import ThinkingDropdown from './ThinkingDropdown';
 import CodeViewer from './CodeViewer';
 import DataPreview from './DataPreview';
 import TypingIndicator from './TypingIndicator';
+import BainIcon from '../assets/Bain_icom.svg';
 
-export default function ChatPanel({ messages, isStreaming, onSend, onStop, hasFiles, generatedCode, files, relationships, thoughts }) {
+export default function ChatPanel({ messages, isStreaming, onSend, onStop, generatedCode, files, relationships, thoughts }) {
+  const hasFiles = files && files.length > 0;
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const [text, setText] = React.useState('');
@@ -39,23 +41,15 @@ export default function ChatPanel({ messages, isStreaming, onSend, onStop, hasFi
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto">
         {visibleMessages.length === 0 && !isStreaming ? (
-          <div className="aurora bg-grid flex h-full flex-col items-center justify-center px-6">
+          <div className="aurora bg-grid flex min-h-full flex-col items-center justify-center px-6 py-10">
             <div className="relative z-10 w-full max-w-xl">
               {/* Welcome hero */}
               <div className="slide-up mb-10 text-center">
                 <div className="relative mx-auto mb-6 h-20 w-20">
                   <div className="orb" style={{ width: 120, height: 120, top: -20, left: -20, background: 'var(--aurora-1)' }} />
                   <div className="orb" style={{ width: 80, height: 80, top: 10, right: -30, background: 'var(--aurora-2)', animationDelay: '2s' }} />
-                  <div
-                    className="breathe relative flex h-20 w-20 items-center justify-center rounded-2xl"
-                    style={{
-                      background: 'linear-gradient(135deg, var(--red) 0%, var(--red-dark) 100%)',
-                      boxShadow: '0 8px 40px rgba(220,38,38,0.4), 0 0 80px rgba(220,38,38,0.15)',
-                    }}
-                  >
-                    <svg className="h-10 w-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
-                    </svg>
+                  <div className="breathe relative flex h-20 w-20 items-center justify-center">
+                    <img src={BainIcon} alt="Bain Logo" className="h-16 w-16" />
                   </div>
                 </div>
 

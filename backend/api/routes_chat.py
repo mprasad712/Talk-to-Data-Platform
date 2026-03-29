@@ -43,6 +43,8 @@ async def chat(request: ChatRequest):
         "generated_code": None,
         "execution_result": None,
         "execution_result_markdown": None,
+        "execution_result_csv": None,
+        "citations": None,
         "execution_error": None,
         "is_valid": None,
         "validation_feedback": None,
@@ -59,6 +61,8 @@ async def chat(request: ChatRequest):
         try:
             logger.info("Starting agent graph for query: %s", request.query)
             table_markdown = None
+            full_csv = None
+            citations = None
 
             async for event in agent_graph.astream(
                 initial_state,
@@ -99,9 +103,13 @@ async def chat(request: ChatRequest):
                         }
                         await asyncio.sleep(0)
 
-                    # Capture execution result table to combine with answer
+                    # Capture execution result table, CSV, and citations
                     if update.get("execution_result_markdown"):
                         table_markdown = update["execution_result_markdown"]
+                    if update.get("execution_result_csv"):
+                        full_csv = update["execution_result_csv"]
+                    if update.get("citations"):
+                        citations = update["citations"]
 
                     # Stream final answer — prepend table if available
                     if update.get("final_answer"):
@@ -109,11 +117,16 @@ async def chat(request: ChatRequest):
                         if table_markdown:
                             answer = table_markdown + "\n\n---\n\n" + answer
                             table_markdown = None
+                        response_data = {"content": answer}
+                        if full_csv:
+                            response_data["csv"] = full_csv
+                            full_csv = None
+                        if citations:
+                            response_data["citations"] = citations
+                            citations = None
                         yield {
                             "event": "answer",
-                            "data": json.dumps({
-                                "content": answer,
-                            }),
+                            "data": json.dumps(response_data),
                         }
                         await asyncio.sleep(0)
 
