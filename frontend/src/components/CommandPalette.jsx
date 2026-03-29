@@ -61,7 +61,7 @@ export default function CommandPalette({ open, onClose, onAction }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]"
-      style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }}
+      style={{ background: 'rgba(0,0,0,0.6)' }}
       onClick={onClose}
     >
       <div

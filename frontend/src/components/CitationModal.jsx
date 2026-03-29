@@ -22,7 +22,7 @@ export default function CitationModal({ citations, onClose }) {
       onClick={onClose}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} />
+      <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.6)' }} />
 
       {/* Modal */}
       <div
