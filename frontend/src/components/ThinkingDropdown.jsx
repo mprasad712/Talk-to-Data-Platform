@@ -70,8 +70,14 @@ export default function ThinkingDropdown({ thoughts, isStreaming }) {
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <svg className="h-3.5 w-3.5" style={{ color: 'var(--text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+            <svg className="h-3.5 w-3.5" style={{ color: 'var(--text-muted)' }} fill="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="2.2"/>
+              <circle cx="12" cy="4.5" r="1.5"/>
+              <circle cx="18.5" cy="8.2" r="1.5"/>
+              <circle cx="18.5" cy="15.8" r="1.5"/>
+              <circle cx="12" cy="19.5" r="1.5"/>
+              <circle cx="5.5" cy="15.8" r="1.5"/>
+              <circle cx="5.5" cy="8.2" r="1.5"/>
             </svg>
             <span className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
               Analyzed using {doneAgents.size} agent{doneAgents.size !== 1 ? 's' : ''}

@@ -124,7 +124,7 @@ export default function AuthPage({ onAuth }) {
           {/* Header */}
           <div className="mb-8 flex flex-col items-center">
             <div className="breathe mb-4 flex h-14 w-14 items-center justify-center rounded-xl" style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-color)' }}>
-              <img src={BainIcon} alt="Coro" className="h-9 w-9" />
+              <img src={bainLogo} alt="Bain & Company" className="h-8" style={{ filter: 'var(--logo-filter)' }} />
             </div>
             <h2 className="text-[22px] font-extrabold" style={{ color: 'var(--red)' }}>
               Coro<span className="text-[13px] align-super">®</span>

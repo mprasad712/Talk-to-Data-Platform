@@ -40,7 +40,7 @@ export default function Layout({
     const msgs = chat.messages.filter(m => !m.isPlaceholder);
     if (msgs.length === 0) { addToast('No messages to export', 'info'); return; }
     const md = msgs.map(m => {
-      const role = m.role === 'user' ? '**You**' : '**BCN Analyst**';
+      const role = m.role === 'user' ? '**You**' : '**Coro**';
       return `### ${role}\n\n${m.content}\n`;
     }).join('\n---\n\n');
     const header = `# Coro BAIN & COMPANY - Conversation Export\n_Exported on ${new Date().toLocaleString()}_\n\n---\n\n`;

@@ -117,13 +117,25 @@ export default function ChatMessage({ message, index }) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" />
             </svg>
           ) : (
-            <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+            <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="2.5"/>
+              <circle cx="12" cy="4" r="1.8"/>
+              <circle cx="18.9" cy="8" r="1.8"/>
+              <circle cx="18.9" cy="16" r="1.8"/>
+              <circle cx="12" cy="20" r="1.8"/>
+              <circle cx="5.1" cy="16" r="1.8"/>
+              <circle cx="5.1" cy="8" r="1.8"/>
+              <rect x="11.4" y="5.5" width="1.2" height="4.5" rx="0.6"/>
+              <rect x="11.4" y="14" width="1.2" height="4.5" rx="0.6" />
+              <rect x="14" y="10.5" width="1.2" height="4.5" rx="0.6" transform="rotate(60 14.6 12.75)"/>
+              <rect x="8.8" y="10.5" width="1.2" height="4.5" rx="0.6" transform="rotate(-60 9.4 12.75)"/>
+              <rect x="14" y="10.5" width="1.2" height="4.5" rx="0.6" transform="rotate(120 14.6 12.75)"/>
+              <rect x="8.8" y="10.5" width="1.2" height="4.5" rx="0.6" transform="rotate(-120 9.4 12.75)"/>
             </svg>
           )}
         </div>
         <span className="text-[13px] font-semibold" style={{ color: isError ? 'var(--red)' : 'var(--text-muted)' }}>
-          {isError ? 'Error' : 'BCN Analyst'}
+          {isError ? 'Error' : 'Coro'}
         </span>
         {timeStr && (
           <span className="text-[10.5px] font-medium" style={{ color: 'var(--timestamp-color)' }}>{timeStr}</span>
