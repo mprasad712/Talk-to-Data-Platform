@@ -4,9 +4,11 @@ import logging
 import traceback
 from fastapi import APIRouter
 from pydantic import BaseModel
+from typing import Optional
 from sse_starlette.sse import EventSourceResponse
 from agents.graph import agent_graph
 from services.file_manager import get_file_paths, get_dataset_context, get_session, get_relationships
+from services import chat_store
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -17,6 +19,7 @@ router = APIRouter()
 class ChatRequest(BaseModel):
     session_id: str
     query: str
+    chat_session_id: Optional[str] = None  # persistent chat session ID
 
 
 @router.post("/chat")
@@ -34,11 +37,24 @@ async def chat(request: ChatRequest):
     file_paths = get_file_paths(request.session_id)
     dataset_context = get_dataset_context(request.session_id)
 
+    # Load chat history from DB for context
+    chat_sid = request.chat_session_id
+    chat_history = []
+    if chat_sid:
+        try:
+            prior_msgs = chat_store.get_messages(chat_sid)
+            # Include last 20 messages for context (role + content only)
+            for m in prior_msgs[-20:]:
+                chat_history.append({"role": m["role"], "content": m["content"][:500]})
+        except Exception:
+            pass
+
     initial_state = {
         "user_query": request.query,
         "session_id": request.session_id,
         "dataset_file_paths": file_paths,
         "dataset_context": dataset_context,
+        "chat_history": chat_history if chat_history else None,
         "next_agent": None,
         "generated_code": None,
         "execution_result": None,
@@ -53,6 +69,10 @@ async def chat(request: ChatRequest):
         "thought_trace": [],
     }
 
+    # Save user message to DB
+    if chat_sid:
+        chat_store.add_message(chat_sid, "user", request.query)
+
     async def event_generator():
         # Initial ping to flush proxy buffers and confirm connection
         yield {"event": "ping", "data": "{}"}
@@ -63,6 +83,7 @@ async def chat(request: ChatRequest):
             table_markdown = None
             full_csv = None
             citations = None
+            all_thoughts = []
 
             async for event in agent_graph.astream(
                 initial_state,
@@ -74,9 +95,10 @@ async def chat(request: ChatRequest):
 
                     logger.info("Node completed: %s", node_name)
 
-                    # Stream thought trace entries
+                    # Stream thought trace entries and collect them
                     new_traces = update.get("thought_trace", [])
                     for trace in new_traces:
+                        all_thoughts.append(trace)
                         yield {
                             "event": "thought",
                             "data": json.dumps(trace),
@@ -120,10 +142,21 @@ async def chat(request: ChatRequest):
                         response_data = {"content": answer}
                         if full_csv:
                             response_data["csv"] = full_csv
-                            full_csv = None
                         if citations:
                             response_data["citations"] = citations
-                            citations = None
+
+                        # Save assistant message to DB with thoughts
+                        if chat_sid:
+                            chat_store.add_message(
+                                chat_sid, "assistant", answer,
+                                csv_data=full_csv,
+                                citations=citations,
+                                thoughts=all_thoughts if all_thoughts else None,
+                            )
+                            all_thoughts = []
+
+                        full_csv = None
+                        citations = None
                         yield {
                             "event": "answer",
                             "data": json.dumps(response_data),

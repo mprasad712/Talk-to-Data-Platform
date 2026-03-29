@@ -33,8 +33,17 @@ async def orchestrator_node(state: AgentState) -> dict:
     context_status = "available" if state.get("dataset_context") else "not available"
     file_count = len(state.get("dataset_file_paths", []))
 
-    user_msg = 'User query: "{}"\n\nCurrent state:\n- Files uploaded: {}\n- Dataset context (schema info): {}\n- File paths: {}\n\nWhich agent should handle this?'.format(
-        state["user_query"], file_count, context_status, state.get("dataset_file_paths", [])
+    # Include recent chat history for follow-up context
+    history_str = ""
+    if state.get("chat_history"):
+        history_lines = []
+        for msg in state["chat_history"][-6:]:
+            prefix = "User" if msg["role"] == "user" else "Assistant"
+            history_lines.append("{}: {}".format(prefix, msg["content"][:150]))
+        history_str = "\n- Recent conversation:\n" + "\n".join(history_lines)
+
+    user_msg = 'User query: "{}"\n\nCurrent state:\n- Files uploaded: {}\n- Dataset context (schema info): {}\n- File paths: {}{}\n\nWhich agent should handle this?'.format(
+        state["user_query"], file_count, context_status, state.get("dataset_file_paths", []), history_str
     )
 
     text = await llm_completion(

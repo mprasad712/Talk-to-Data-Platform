@@ -1,5 +1,48 @@
 const API_BASE = '/api';
 
+// ── Auth helpers ──
+
+function getAuthHeaders() {
+  const token = localStorage.getItem('bcn_token');
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
+}
+
+export async function registerUser(email, name, password) {
+  const res = await fetch(`${API_BASE}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, name, password }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || 'Registration failed');
+  }
+  return res.json();
+}
+
+export async function loginUser(email, password) {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || 'Login failed');
+  }
+  return res.json();
+}
+
+export async function getMe() {
+  const res = await fetch(`${API_BASE}/auth/me`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error('Not authenticated');
+  return res.json();
+}
+
 // ── LLM Provider API ──
 
 export async function getLLMProviders() {
@@ -112,6 +155,48 @@ export async function deleteDataset(sessionId, filename) {
   return res.json();
 }
 
+// ── Chat Sessions API ──
+
+export async function listChatSessions() {
+  const res = await fetch(`${API_BASE}/sessions`, { headers: getAuthHeaders() });
+  if (!res.ok) throw new Error('Failed to fetch sessions');
+  return res.json();
+}
+
+export async function createChatSession(name = 'New Session', fileSessionId = null) {
+  const res = await fetch(`${API_BASE}/sessions`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ name, file_session_id: fileSessionId }),
+  });
+  if (!res.ok) throw new Error('Failed to create session');
+  return res.json();
+}
+
+export async function getChatSession(sessionId) {
+  const res = await fetch(`${API_BASE}/sessions/${sessionId}`);
+  if (!res.ok) throw new Error('Failed to fetch session');
+  return res.json();
+}
+
+export async function renameChatSession(sessionId, name) {
+  const res = await fetch(`${API_BASE}/sessions/${sessionId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) throw new Error('Failed to rename session');
+  return res.json();
+}
+
+export async function deleteChatSession(sessionId) {
+  const res = await fetch(`${API_BASE}/sessions/${sessionId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to delete session');
+  return res.json();
+}
+
 function parseSSEEvents(text) {
   const events = [];
   // Split by double newline to get individual events
@@ -139,14 +224,17 @@ function parseSSEEvents(text) {
   return events;
 }
 
-export function streamChat(sessionId, query, onThought, onCode, onAnswer, onError, onDone, onRelationships) {
+export function streamChat(sessionId, query, onThought, onCode, onAnswer, onError, onDone, onRelationships, chatSessionId = null) {
   const controller = new AbortController();
   let doneEmitted = false;
+
+  const payload = { session_id: sessionId, query };
+  if (chatSessionId) payload.chat_session_id = chatSessionId;
 
   fetch(`${API_BASE}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ session_id: sessionId, query }),
+    body: JSON.stringify(payload),
     signal: controller.signal,
   })
     .then(async (response) => {

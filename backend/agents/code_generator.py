@@ -12,6 +12,15 @@ STRICT RULES:
 5. DO NOT use print() for the final answer - assign to RESULT instead.
 6. When joining datasets, use the join keys identified in the dataset context.
 
+CRITICAL — DO NOT HALLUCINATE:
+- ONLY use columns that ACTUALLY EXIST in the dataset context provided. Do NOT invent, guess, or assume columns.
+- Before writing any analysis code, verify that every column your code references is listed in the dataset context.
+- If the user's question requires data that does NOT exist in any of the available columns (e.g., asking for year-over-year trends when there is no date/year column, asking for geographic analysis when there is no location column), do NOT fabricate or work around it.
+- Instead, set RESULT to a descriptive string explaining exactly what data is missing. For example:
+  RESULT = "This analysis cannot be performed because the available datasets do not contain a date or year column required for year-over-year calculation. Available columns are: [list relevant columns]."
+- Do NOT extract years from non-date fields, do NOT use row indices as time periods, do NOT create synthetic data.
+- If only PARTIAL data is available (e.g., a date column exists but has no year variation), explain the limitation in RESULT.
+
 DATA QUALITY — ALWAYS do this after reading each CSV:
 - Drop rows where ALL values are NaN: df.dropna(how='all', inplace=True)
 - For the columns you're analyzing, drop rows where those specific columns are NaN/blank
@@ -61,11 +70,21 @@ async def code_generator_node(state: AgentState) -> dict:
         "- {}".format(p) for p in state.get("dataset_file_paths", [])
     )
 
-    user_msg = 'User question: "{}"\n\nAvailable dataset files:\n{}\n\nDataset context (schemas, join keys, data types):\n{}\n{}\n\nWrite Python/Pandas code to answer this question. Remember: assign the final answer to RESULT.'.format(
+    # Build conversation history context
+    history_str = ""
+    if state.get("chat_history"):
+        history_lines = []
+        for msg in state["chat_history"]:
+            prefix = "User" if msg["role"] == "user" else "Assistant"
+            history_lines.append("{}: {}".format(prefix, msg["content"][:200]))
+        history_str = "\n\nPrior conversation (for context on follow-up questions):\n" + "\n".join(history_lines[-10:])
+
+    user_msg = 'User question: "{}"\n\nAvailable dataset files:\n{}\n\nDataset context (schemas, join keys, data types):\n{}\n{}{}\n\nWrite Python/Pandas code to answer this question. Remember: assign the final answer to RESULT.'.format(
         state["user_query"],
         file_paths_str,
         state.get("dataset_context", "No context available"),
         retry_info,
+        history_str,
     )
 
     code = await llm_completion(

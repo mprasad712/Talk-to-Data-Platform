@@ -11,6 +11,7 @@ class AgentState(TypedDict):
     user_query: str
     session_id: str
     dataset_file_paths: List[str]
+    chat_history: Optional[List[dict]]  # Prior conversation [{role, content}, ...]
 
     # Data Identifier output (cached across queries in same session)
     dataset_context: Optional[str]  # JSON: schemas, join keys, samples

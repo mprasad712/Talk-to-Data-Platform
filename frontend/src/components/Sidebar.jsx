@@ -12,8 +12,10 @@ const TAB_ICONS = {
 };
 
 export default function Sidebar({
-  sessions, activeSessionIdx, onSelectSession, onSaveSession,
+  sessions, activeSessionIdx, onSelectSession,
+  onDeleteSession, onNewSession,
   memorySettings, onMemorySettingsChange, fileManager,
+  onCollapse,
 }) {
   const [tab, setTab] = useState('files');
   const [expandedReport, setExpandedReport] = useState(null);
@@ -37,9 +39,23 @@ export default function Sidebar({
   const cleaningReports = fileManager?.cleaningReports || {};
 
   return (
-    <div className="flex w-[310px] shrink-0 flex-col" style={{ borderRight: '1px solid var(--border-color)', background: 'var(--bg-surface)' }}>
+    <div className="flex h-full w-[310px] shrink-0 flex-col overflow-hidden" style={{ borderRight: '1px solid var(--border-color)', background: 'var(--bg-surface)' }}>
+      {/* Collapse button */}
+      <div className="flex shrink-0 items-center justify-end px-2 pt-2">
+        <button
+          onClick={onCollapse}
+          className="flex h-7 w-7 items-center justify-center rounded-md transition-all duration-200 hover:scale-110"
+          style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-color)' }}
+          title="Collapse sidebar"
+        >
+          <svg className="h-3.5 w-3.5" style={{ color: 'var(--text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+          </svg>
+        </button>
+      </div>
+
       {/* Tabs */}
-      <div className="flex shrink-0 gap-0.5 px-2 pt-2" style={{ borderBottom: '1px solid var(--border-color)' }}>
+      <div className="flex shrink-0 gap-0.5 px-2 pt-1" style={{ borderBottom: '1px solid var(--border-color)' }}>
         {['files', 'workbench', 'sessions', 'llm'].map(t => (
           <button
             key={t}
@@ -229,28 +245,30 @@ export default function Sidebar({
 
       {/* ── WORKBENCH TAB ── */}
       {tab === 'workbench' && (
-        <DataWorkbench
-          files={files}
-          sessionId={fileManager?.sessionId}
-          onFileAdded={(newFile) => {
-            if (fileManager?.addFile) fileManager.addFile(newFile);
-          }}
-        />
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <DataWorkbench
+            files={files}
+            sessionId={fileManager?.sessionId}
+            onFileAdded={(newFile) => {
+              if (fileManager?.addFile) fileManager.addFile(newFile);
+            }}
+          />
+        </div>
       )}
 
       {/* ── SESSIONS TAB ── */}
       {tab === 'sessions' && (
         <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="p-3">
+          <div className="flex gap-2 p-3">
             <button
-              onClick={onSaveSession}
-              className="flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-[11px] font-semibold text-white transition-all hover:shadow-lg"
+              onClick={onNewSession}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-[11px] font-semibold text-white transition-all hover:shadow-lg"
               style={{ background: 'var(--red)', boxShadow: '0 0 16px rgba(220,38,38,0.25)' }}
             >
               <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
-              Save Current Session
+              New Chat
             </button>
           </div>
           <div className="flex-1 overflow-y-auto px-3 pb-3">
@@ -267,23 +285,40 @@ export default function Sidebar({
             ) : (
               <div className="space-y-1.5">
                 {sessions.map((s, i) => (
-                  <button
-                    key={s.id}
-                    onClick={() => onSelectSession(i)}
-                    className="slide-in group w-full rounded-xl px-3 py-2.5 text-left transition-all"
+                  <div
+                    key={s.session_id || s.id}
+                    className="slide-in group relative rounded-xl transition-all"
                     style={{
                       background: activeSessionIdx === i ? 'var(--red-tint)' : 'var(--bg-raised)',
                       border: `1px solid ${activeSessionIdx === i ? 'rgba(220,38,38,0.2)' : 'var(--border-color)'}`,
                       animationDelay: `${i * 30}ms`,
                     }}
                   >
-                    <p className="truncate text-[12px] font-semibold" style={{ color: activeSessionIdx === i ? 'var(--red)' : 'var(--text-secondary)' }}>
-                      {s.name}
-                    </p>
-                    <p className="mt-0.5 text-[10px]" style={{ color: 'var(--text-faint)' }}>
-                      {s.messages.length} messages &middot; {new Date(s.timestamp).toLocaleDateString()}
-                    </p>
-                  </button>
+                    <button
+                      onClick={() => onSelectSession(i)}
+                      className="w-full px-3 py-2.5 text-left"
+                    >
+                      <p className="truncate pr-6 text-[12px] font-semibold" style={{ color: activeSessionIdx === i ? 'var(--red)' : 'var(--text-secondary)' }}>
+                        {s.name}
+                      </p>
+                      <p className="mt-0.5 text-[10px]" style={{ color: 'var(--text-faint)' }}>
+                        {s.message_count || 0} messages &middot; {new Date(s.updated_at || s.created_at).toLocaleDateString()}
+                      </p>
+                    </button>
+                    {/* Delete button */}
+                    {onDeleteSession && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onDeleteSession(s.session_id); }}
+                        className="absolute right-2 top-2.5 flex h-5 w-5 items-center justify-center rounded opacity-0 transition-all group-hover:opacity-100"
+                        style={{ color: 'var(--text-faint)' }}
+                        title="Delete session"
+                      >
+                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
             )}

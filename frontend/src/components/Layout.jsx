@@ -9,8 +9,10 @@ import { useTheme } from '../context/ThemeContext';
 import { useToast } from './Toast';
 
 export default function Layout({
-  fileManager, chat, sessions, activeSessionIdx, onSelectSession, onSaveSession,
+  fileManager, chat, sessions, activeSessionIdx, onSelectSession,
+  onDeleteSession, onNewSession,
   memorySettings, onMemorySettingsChange,
+  user, onLogout,
 }) {
   const [showAgents, setShowAgents] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -41,7 +43,7 @@ export default function Layout({
       const role = m.role === 'user' ? '**You**' : '**BCN Analyst**';
       return `### ${role}\n\n${m.content}\n`;
     }).join('\n---\n\n');
-    const header = `# BCN Data Analytics - Conversation Export\n_Exported on ${new Date().toLocaleString()}_\n\n---\n\n`;
+    const header = `# Coro BAIN & COMPANY - Conversation Export\n_Exported on ${new Date().toLocaleString()}_\n\n---\n\n`;
     const blob = new Blob([header + md], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -75,35 +77,11 @@ export default function Layout({
         style={{ borderBottom: '1px solid var(--border-color)' }}
       >
         <div className="flex items-center gap-3">
-          {/* Sidebar collapse toggle */}
-          <button
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 hover:scale-105"
-            style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-color)' }}
-            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            <svg
-              className="h-4 w-4 transition-transform duration-300"
-              style={{ color: 'var(--text-muted)', transform: sidebarCollapsed ? 'rotate(180deg)' : '' }}
-              fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12H12m-8.25 5.25h16.5" />
-            </svg>
-          </button>
-
-          <img src={bainLogo} alt="Bain & Company" className="h-[22px]" style={{ filter: 'var(--logo-filter)' }} />
-          <div className="hidden h-5 w-px sm:block" style={{ background: 'var(--border-color)' }} />
-          <div className="hidden items-center gap-2.5 sm:flex">
-            <span className="text-[14px] font-semibold tracking-tight" style={{ color: 'var(--text-secondary)' }}>
-              Data Analytics
-            </span>
-            <span
-              className="rounded-md px-2 py-[3px] text-[10.5px] font-black uppercase tracking-wider"
-              style={{ background: 'var(--red)', color: '#fff', boxShadow: '0 0 12px rgba(220,38,38,0.4)' }}
-            >
-              AI
-            </span>
-          </div>
+          <span className="text-[20px] font-extrabold tracking-tight" style={{ color: 'var(--red)' }}>
+            Coro<span className="text-[12px] align-super" style={{ color: 'var(--red)' }}>®</span>
+          </span>
+          <div className="h-7 w-px" style={{ background: 'var(--border-color)' }} />
+          <img src={bainLogo} alt="Bain & Company" className="h-[28px]" style={{ filter: 'var(--logo-filter)' }} />
         </div>
         <div className="flex items-center gap-2">
           {/* Command palette trigger */}
@@ -191,6 +169,34 @@ export default function Layout({
             </svg>
             Agents
           </button>
+
+          {/* User menu */}
+          {user && (
+            <>
+              <div className="hidden h-4 w-px md:block" style={{ background: 'var(--border-color)' }} />
+              <div className="flex items-center gap-2">
+                <div
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-[12px] font-bold text-white"
+                  style={{ background: 'var(--red)' }}
+                >
+                  {user.name?.charAt(0).toUpperCase()}
+                </div>
+                <span className="hidden text-[12.5px] font-medium md:block" style={{ color: 'var(--text-muted)' }}>
+                  {user.name}
+                </span>
+                <button
+                  onClick={onLogout}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg transition-all duration-200 hover:scale-110"
+                  style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-color)' }}
+                  title="Sign out"
+                >
+                  <svg className="h-4 w-4" style={{ color: 'var(--text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+                  </svg>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </header>
 
@@ -225,10 +231,12 @@ export default function Layout({
               sessions={sessions}
               activeSessionIdx={activeSessionIdx}
               onSelectSession={onSelectSession}
-              onSaveSession={onSaveSession}
+              onDeleteSession={onDeleteSession}
+              onNewSession={onNewSession}
               memorySettings={memorySettings}
               onMemorySettingsChange={onMemorySettingsChange}
               fileManager={fileManager}
+              onCollapse={() => setSidebarCollapsed(true)}
             />
           )}
         </div>
@@ -266,7 +274,7 @@ export default function Layout({
   );
 }
 
-/* Mini sidebar when collapsed - just icons */
+/* Mini sidebar when collapsed - arrow to expand */
 function CollapsedSidebar({ fileCount, onExpand }) {
   return (
     <div className="flex h-full flex-col items-center py-3 gap-3">
@@ -276,8 +284,8 @@ function CollapsedSidebar({ fileCount, onExpand }) {
         style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-color)' }}
         title="Expand sidebar"
       >
-        <svg className="h-4 w-4" style={{ color: 'var(--text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+        <svg className="h-4 w-4" style={{ color: 'var(--text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
         </svg>
       </button>
       {fileCount > 0 && (
@@ -288,9 +296,6 @@ function CollapsedSidebar({ fileCount, onExpand }) {
           {fileCount}
         </div>
       )}
-      <div className="mt-auto">
-        <div className="h-6 w-6 rounded-md" style={{ background: 'var(--bg-overlay)' }} />
-      </div>
     </div>
   );
 }

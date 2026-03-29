@@ -185,9 +185,13 @@ def op_column_tools(session_id: str, params: dict) -> dict:
 
 
 def _build_result(df: pd.DataFrame, name: str, session_id: str, params: dict) -> dict:
-    """Build preview + metadata for the result DataFrame."""
+    """Build preview + full CSV + metadata for the result DataFrame."""
     schema = extract_schema_from_df(df)
-    preview_rows = df.head(50).fillna("").to_dict(orient="records")
+    # Send up to 250 rows as JSON for table preview (frontend paginates)
+    max_preview = min(len(df), 250)
+    preview_rows = df.head(max_preview).fillna("").to_dict(orient="records")
+    # Full CSV string for download (all rows)
+    full_csv = df.to_csv(index=False)
 
     return {
         "name": name,
@@ -195,6 +199,7 @@ def _build_result(df: pd.DataFrame, name: str, session_id: str, params: dict) ->
         "column_count": schema["column_count"],
         "columns": schema["columns"],
         "preview": preview_rows,
+        "full_csv": full_csv,
     }
 
 

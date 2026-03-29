@@ -95,7 +95,7 @@ async def download_operation_result(req: DownloadOperationRequest):
 
 @router.get("/data/download/{session_id}/{filename}")
 async def download_file(session_id: str, filename: str):
-    """Download the full CSV file from the session."""
+    """Download the full CSV file directly from disk — fast, no re-processing."""
     session = get_session(session_id)
     if not session:
         raise HTTPException(404, "Session not found")
@@ -105,13 +105,14 @@ async def download_file(session_id: str, filename: str):
         raise HTTPException(404, f"File not found: {filename}")
 
     file_path = file_info["path"]
-    df = pd.read_csv(file_path, encoding="utf-8", errors="replace")
-    csv_buf = StringIO()
-    df.to_csv(csv_buf, index=False)
-    csv_buf.seek(0)
+
+    def stream_file():
+        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+            while chunk := f.read(65536):  # 64KB chunks
+                yield chunk
 
     return StreamingResponse(
-        csv_buf,
+        stream_file(),
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

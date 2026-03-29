@@ -21,7 +21,32 @@ def get_or_create_session(session_id: Optional[str] = None) -> str:
 
 
 def get_session(session_id: str) -> Optional[dict]:
-    return _sessions.get(session_id)
+    session = _sessions.get(session_id)
+    if session:
+        return session
+    # Try to rebuild from disk if files still exist
+    return _rebuild_session_from_disk(session_id)
+
+
+def _rebuild_session_from_disk(session_id: str) -> Optional[dict]:
+    """Rebuild in-memory session from files on disk (survives backend restart)."""
+    session_dir = Path(settings.UPLOAD_DIR) / session_id
+    if not session_dir.exists() or not session_dir.is_dir():
+        return None
+    csv_files = list(session_dir.glob("*.csv"))
+    if not csv_files:
+        return None
+    _sessions[session_id] = {"files": {}, "dataset_context": None, "cleaning_reports": {}, "relationships": []}
+    for csv_path in csv_files:
+        try:
+            schema = extract_schema(str(csv_path))
+            _sessions[session_id]["files"][csv_path.name] = {
+                "path": str(csv_path),
+                "schema": schema,
+            }
+        except Exception:
+            pass
+    return _sessions[session_id] if _sessions[session_id]["files"] else None
 
 
 def save_file(session_id: str, filename: str, content: bytes) -> dict:

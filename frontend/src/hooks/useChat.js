@@ -1,19 +1,41 @@
 import { useState, useCallback, useRef } from 'react';
-import { streamChat } from '../api/client';
+import { streamChat, createChatSession } from '../api/client';
 
 export function useChat(sessionId, onRelationshipsDetected) {
   const [messages, setMessages] = useState([]);
   const [thoughts, setThoughts] = useState([]);
   const [generatedCode, setGeneratedCode] = useState(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [chatSessionId, setChatSessionId] = useState(null);
   const controllerRef = useRef(null);
-  const pendingTableRef = useRef(null);
+  const chatSessionIdRef = useRef(null);
+
+  // Keep ref in sync with state
+  const updateChatSessionId = useCallback((id) => {
+    chatSessionIdRef.current = id;
+    setChatSessionId(id);
+  }, []);
+
+  const loadMessages = useCallback((msgs) => {
+    setMessages(msgs);
+  }, []);
 
   const sendMessage = useCallback(
-    (query) => {
+    async (query) => {
       if (!sessionId || !query.trim() || isStreaming) return;
 
-      // Add user message and a placeholder assistant message
+      // Create chat session in DB if we don't have one yet
+      let csId = chatSessionIdRef.current;
+      if (!csId) {
+        try {
+          const session = await createChatSession(query.slice(0, 60), sessionId);
+          csId = session.session_id;
+          updateChatSessionId(csId);
+        } catch (e) {
+          console.error('Failed to create chat session:', e);
+        }
+      }
+
       setMessages((prev) => [
         ...prev,
         { role: 'user', content: query, timestamp: Date.now() },
@@ -22,7 +44,6 @@ export function useChat(sessionId, onRelationshipsDetected) {
       setThoughts([]);
       setGeneratedCode(null);
       setIsStreaming(true);
-      pendingTableRef.current = null;
 
       controllerRef.current = streamChat(
         sessionId,
@@ -35,11 +56,10 @@ export function useChat(sessionId, onRelationshipsDetected) {
         (data) => {
           setGeneratedCode(data.code);
         },
-        // onAnswer — update the placeholder assistant message (never add a new one)
+        // onAnswer
         (data) => {
           setMessages((prev) => {
             const updated = [...prev];
-            // Find the last assistant placeholder or assistant message
             for (let i = updated.length - 1; i >= 0; i--) {
               if (updated[i].role === 'assistant' && !updated[i].isError) {
                 updated[i] = {
@@ -53,14 +73,12 @@ export function useChat(sessionId, onRelationshipsDetected) {
                 return updated;
               }
             }
-            // Fallback: add new message
             return [...prev, { role: 'assistant', content: data.content, csv: data.csv || null, citations: data.citations || null, timestamp: Date.now() }];
           });
         },
         // onError
         (data) => {
           setMessages((prev) => {
-            // Replace placeholder with error
             const updated = [...prev];
             for (let i = updated.length - 1; i >= 0; i--) {
               if (updated[i].role === 'assistant' && updated[i].isPlaceholder) {
@@ -82,17 +100,18 @@ export function useChat(sessionId, onRelationshipsDetected) {
         },
         // onDone
         () => {
-          // Remove placeholder if still empty
           setMessages((prev) => prev.filter((m) => !m.isPlaceholder));
           setIsStreaming(false);
         },
         // onRelationships
         (data) => {
           if (onRelationshipsDetected) onRelationshipsDetected(data);
-        }
+        },
+        // chatSessionId for DB persistence
+        csId
       );
     },
-    [sessionId, isStreaming, onRelationshipsDetected]
+    [sessionId, isStreaming, onRelationshipsDetected, updateChatSessionId]
   );
 
   const stopStreaming = useCallback(() => {
@@ -103,12 +122,23 @@ export function useChat(sessionId, onRelationshipsDetected) {
     }
   }, []);
 
+  const clearMessages = useCallback(() => {
+    setMessages([]);
+    setThoughts([]);
+    setGeneratedCode(null);
+    updateChatSessionId(null);
+  }, [updateChatSessionId]);
+
   return {
     messages,
     thoughts,
     generatedCode,
     isStreaming,
+    chatSessionId,
+    setChatSessionId: updateChatSessionId,
     sendMessage,
     stopStreaming,
+    loadMessages,
+    clearMessages,
   };
 }

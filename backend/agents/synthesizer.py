@@ -14,6 +14,7 @@ Guidelines:
 6. Keep it concise but insightful - aim for 3-5 sentences for simple queries, more for complex ones.
 7. Use bullet points or numbered lists for multiple findings.
 8. If the data shows something unexpected, call it out.
+9. IMPORTANT: If the analysis result is a "data not available" message (indicating that required columns or data are missing from the datasets), present this clearly and helpfully. Explain exactly what data is missing and what the user would need to provide. Do NOT fabricate insights or numbers that are not in the results. Never hallucinate data.
 
 Format your response in clean markdown. Do NOT include markdown tables — those are rendered separately."""
 
@@ -26,12 +27,22 @@ async def synthesizer_node(state: AgentState) -> dict:
         "timestamp": datetime.now().isoformat(),
     }
 
+    # Build conversation history context
+    history_str = ""
+    if state.get("chat_history"):
+        history_lines = []
+        for msg in state["chat_history"]:
+            prefix = "User" if msg["role"] == "user" else "Assistant"
+            history_lines.append("{}: {}".format(prefix, msg["content"][:200]))
+        history_str = "\n\nPrior conversation:\n" + "\n".join(history_lines[-10:])
+
     # Handle different scenarios
     if state.get("execution_result"):
-        user_msg = 'User\'s question: "{}"\n\nThe analysis code produced this result:\n{}\n\nDataset context:\n{}\n\nPlease synthesize these results into a clear, insightful answer for a business user.'.format(
+        user_msg = 'User\'s question: "{}"\n\nThe analysis code produced this result:\n{}\n\nDataset context:\n{}{}\n\nPlease synthesize these results into a clear, insightful answer for a business user.'.format(
             state["user_query"],
             state["execution_result"],
             (state.get("dataset_context") or "N/A")[:2000],
+            history_str,
         )
     elif state.get("dataset_context"):
         # Include relationship info if available
@@ -48,10 +59,11 @@ async def synthesizer_node(state: AgentState) -> dict:
             rel_info = "\n\nDetected relationships between files:\n" + "\n".join(rel_lines)
             rel_info += "\n\nNote: The relationship diagram is already shown visually in the UI. Describe the relationships in text — do NOT create tables for this."
 
-        user_msg = 'User\'s question: "{}"\n\nHere is the information about the available datasets:\n{}{}\n\nPlease answer the user\'s question based on this dataset information. Keep it concise and describe the data structure, columns, and relationships clearly.'.format(
+        user_msg = 'User\'s question: "{}"\n\nHere is the information about the available datasets:\n{}{}{}\n\nPlease answer the user\'s question based on this dataset information. Keep it concise and describe the data structure, columns, and relationships clearly.'.format(
             state["user_query"],
             state["dataset_context"],
             rel_info,
+            history_str,
         )
     elif state.get("dataset_file_paths"):
         # Files uploaded but context not yet built

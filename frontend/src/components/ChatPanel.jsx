@@ -53,9 +53,20 @@ export default function ChatPanel({ messages, isStreaming, onSend, onStop, gener
                   </div>
                 </div>
 
-                <h2 className="gradient-text text-[30px] font-extrabold tracking-tight">
-                  {hasFiles ? 'Ready to Analyze' : 'BCN Data Analytics'}
-                </h2>
+                {hasFiles ? (
+                  <h2 className="text-[30px] font-extrabold tracking-tight" style={{ color: 'var(--red)' }}>
+                    Ready to Analyze
+                  </h2>
+                ) : (
+                  <div className="text-center">
+                    <h2 className="text-[36px] font-extrabold tracking-tight" style={{ color: 'var(--red)' }}>
+                      Coro<span className="text-[20px] align-super" style={{ color: 'var(--red)' }}>®</span>
+                    </h2>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.25em]" style={{ color: 'var(--text-secondary)' }}>
+                      Bain &amp; Company
+                    </p>
+                  </div>
+                )}
                 <p className="mx-auto mt-3 max-w-xs text-[14.5px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
                   {hasFiles
                     ? 'Your data is loaded. Ask anything and our AI agents will analyze it.'
@@ -123,10 +134,14 @@ export default function ChatPanel({ messages, isStreaming, onSend, onStop, gener
           <div className="mx-auto max-w-4xl px-5 py-6">
             {visibleMessages.map((msg, i) => {
               const isLastAssistant = msg.role === 'assistant' && i === visibleMessages.length - 1;
+              // Use saved thoughts from DB, or live thoughts for the latest message
+              const msgThoughts = isLastAssistant && thoughts.length > 0
+                ? thoughts
+                : (msg.role === 'assistant' && msg.thoughts && msg.thoughts.length > 0 ? msg.thoughts : null);
               return (
                 <React.Fragment key={i}>
-                  {isLastAssistant && thoughts.length > 0 && (
-                    <ThinkingDropdown thoughts={thoughts} isStreaming={isStreaming} />
+                  {msg.role === 'assistant' && msgThoughts && (
+                    <ThinkingDropdown thoughts={msgThoughts} isStreaming={isLastAssistant && isStreaming} />
                   )}
                   {isLastAssistant && generatedCode && !isStreaming && (
                     <CodeViewer code={generatedCode} />

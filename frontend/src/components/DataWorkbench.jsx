@@ -85,33 +85,18 @@ export default function DataWorkbench({ files, sessionId, onFileAdded }) {
     }
   };
 
-  const handleDownload = async () => {
-    if (!preview || !lastParams) return;
-    try {
-      const res = await fetch('/api/data/operations/download', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          session_id: sessionId,
-          operation: lastParams.operation,
-          params: lastParams.params,
-          name: preview.name,
-        }),
-      });
-      if (!res.ok) throw new Error('Download failed');
-      const text = await res.text();
-      const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${preview.name}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      setError('Download failed: ' + e.message);
-    }
+  const handleDownload = () => {
+    if (!preview || !preview.full_csv) return;
+    const filename = preview.name.endsWith('.csv') ? preview.name : `${preview.name}.csv`;
+    const blob = new Blob([preview.full_csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   if (files.length === 0) {
@@ -170,10 +155,9 @@ export default function DataWorkbench({ files, sessionId, onFileAdded }) {
           </div>
         </div>
 
-        {/* Preview table */}
-        <div className="flex-1 overflow-auto">
-          <div className="overflow-x-auto">
-            <table className="w-full text-[11px]" style={{ borderCollapse: 'collapse', minWidth: preview.columns.length > 5 ? `${preview.columns.length * 140}px` : undefined }}>
+        {/* Preview table — scrollable both horizontal and vertical */}
+        <div className="min-h-0 flex-1 overflow-auto">
+            <table className="text-[11px]" style={{ borderCollapse: 'collapse', minWidth: `${Math.max(preview.columns.length * 150, 600)}px` }}>
               <thead>
                 <tr style={{ background: 'var(--bg-surface)', position: 'sticky', top: 0, zIndex: 1 }}>
                   {preview.columns.map(col => (
@@ -196,46 +180,60 @@ export default function DataWorkbench({ files, sessionId, onFileAdded }) {
                 ))}
               </tbody>
             </table>
-          </div>
 
-          {/* Pagination */}
+          {/* Pagination — max 10 pages shown, download for full data */}
           {(() => {
-            const totalRows = preview.preview.length;
-            const totalPages = Math.ceil(totalRows / WB_ROWS_PER_PAGE);
-            return totalPages > 1 ? (
+            const previewRows = preview.preview.length;
+            const totalRows = preview.row_count;
+            const maxPages = Math.min(Math.ceil(previewRows / WB_ROWS_PER_PAGE), 10);
+            const maxVisibleRows = maxPages * WB_ROWS_PER_PAGE;
+            return (
               <div
-                className="flex items-center justify-between px-3 py-2"
+                className="shrink-0 px-3 py-2"
                 style={{ borderTop: '1px solid var(--border-color)', background: 'var(--bg-surface)' }}
               >
-                <span className="text-[10px] font-medium" style={{ color: 'var(--text-faint)' }}>
-                  {(wbPage * WB_ROWS_PER_PAGE + 1).toLocaleString()}-{Math.min((wbPage + 1) * WB_ROWS_PER_PAGE, totalRows).toLocaleString()} of {totalRows.toLocaleString()} rows
-                </span>
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => setWbPage(p => Math.max(0, p - 1))}
-                    disabled={wbPage === 0}
-                    className="rounded px-2 py-0.5 text-[10px] font-medium transition-all disabled:opacity-30"
-                    style={{ background: 'var(--bg-overlay)', color: 'var(--text-muted)' }}
-                  >
-                    Prev
-                  </button>
-                  <span className="px-1 text-[10px] font-medium" style={{ color: 'var(--text-faint)', lineHeight: '22px' }}>
-                    {wbPage + 1}/{totalPages}
-                  </span>
-                  <button
-                    onClick={() => setWbPage(p => Math.min(totalPages - 1, p + 1))}
-                    disabled={wbPage >= totalPages - 1}
-                    className="rounded px-2 py-0.5 text-[10px] font-medium transition-all disabled:opacity-30"
-                    style={{ background: 'var(--bg-overlay)', color: 'var(--text-muted)' }}
-                  >
-                    Next
-                  </button>
-                </div>
+                {maxPages > 1 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-medium" style={{ color: 'var(--text-faint)' }}>
+                      {(wbPage * WB_ROWS_PER_PAGE + 1).toLocaleString()}-{Math.min((wbPage + 1) * WB_ROWS_PER_PAGE, previewRows).toLocaleString()} of {previewRows.toLocaleString()} shown
+                    </span>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => setWbPage(p => Math.max(0, p - 1))}
+                        disabled={wbPage === 0}
+                        className="rounded px-2 py-0.5 text-[10px] font-medium transition-all disabled:opacity-30"
+                        style={{ background: 'var(--bg-overlay)', color: 'var(--text-muted)' }}
+                      >
+                        Prev
+                      </button>
+                      <span className="px-1 text-[10px] font-medium" style={{ color: 'var(--text-faint)', lineHeight: '22px' }}>
+                        {wbPage + 1}/{maxPages}
+                      </span>
+                      <button
+                        onClick={() => setWbPage(p => Math.min(maxPages - 1, p + 1))}
+                        disabled={wbPage >= maxPages - 1}
+                        className="rounded px-2 py-0.5 text-[10px] font-medium transition-all disabled:opacity-30"
+                        style={{ background: 'var(--bg-overlay)', color: 'var(--text-muted)' }}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {totalRows > maxVisibleRows && (
+                  <p className="mt-1.5 text-center text-[10px] font-medium" style={{ color: 'var(--text-faint)' }}>
+                    Showing {Math.min(previewRows, maxVisibleRows).toLocaleString()} of {totalRows.toLocaleString()} total rows &mdash;{' '}
+                    <button onClick={handleDownload} className="underline" style={{ color: 'var(--blue)' }}>
+                      Download CSV for full view
+                    </button>
+                  </p>
+                )}
+                {totalRows <= maxVisibleRows && maxPages <= 1 && (
+                  <p className="text-center text-[10px]" style={{ color: 'var(--text-faint)' }}>
+                    {totalRows.toLocaleString()} rows
+                  </p>
+                )}
               </div>
-            ) : (
-              <p className="px-3 py-2 text-center text-[10px]" style={{ color: 'var(--text-faint)' }}>
-                {totalRows.toLocaleString()} rows
-              </p>
             );
           })()}
         </div>

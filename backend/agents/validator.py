@@ -11,6 +11,7 @@ Check the following:
 3. PLAUSIBILITY: Are the results reasonable? (e.g., no negative counts, percentages over 100%, revenue that seems impossibly high/low)
 4. COMPLETENESS: Does the result fully answer the question, or is it partial?
 5. ERROR HANDLING: If there was an execution error, identify what went wrong.
+6. DATA AVAILABILITY — CRITICAL: Check if the code uses columns that actually exist in the dataset context. If the user asked for something that requires columns NOT present in the data (e.g., year-over-year analysis without date/year columns, geographic analysis without location columns), the code should return a "data not available" message rather than fabricating or approximating results. Mark as INVALID (severity: critical) if the code invents data, uses non-existent columns, or produces results that cannot be derived from the actual available columns.
 
 Respond with ONLY a JSON object:
 {
@@ -49,8 +50,9 @@ async def validator_node(state: AgentState) -> dict:
             "thought_trace": [trace_entry, done_entry],
         }
 
-    user_msg = 'User\'s original question: "{}"\n\nGenerated code:\n```python\n{}\n```\n\nExecution result:\n{}\n\nIs this code correct and does the result properly answer the user\'s question?'.format(
+    user_msg = 'User\'s original question: "{}"\n\nDataset context (available columns and types):\n{}\n\nGenerated code:\n```python\n{}\n```\n\nExecution result:\n{}\n\nIs this code correct and does the result properly answer the user\'s question? Verify that the code ONLY uses columns that exist in the dataset context above. If the question requires data (columns, date fields, categories, etc.) that is NOT present in the datasets, the code should return a "data not available" message — mark as INVALID if it fabricates results instead.'.format(
         state["user_query"],
+        state.get("dataset_context", "N/A")[:3000],
         state.get("generated_code", "N/A"),
         state.get("execution_result", "N/A"),
     )

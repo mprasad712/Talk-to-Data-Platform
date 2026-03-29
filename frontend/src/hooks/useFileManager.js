@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { uploadFiles as apiUpload, deleteDataset } from '../api/client';
+import { uploadFiles as apiUpload, deleteDataset, getDatasets } from '../api/client';
 
 export function useFileManager() {
   const [sessionId, setSessionId] = useState(null);
@@ -50,6 +50,31 @@ export function useFileManager() {
     }
   }, []);
 
+  const restoreSession = useCallback(async (fileSessionId) => {
+    if (!fileSessionId) return;
+    try {
+      const data = await getDatasets(fileSessionId);
+      setSessionId(data.session_id);
+      setFiles(data.files || []);
+      setRelationships(data.relationships || []);
+      const reports = {};
+      for (const f of data.files || []) {
+        if (f.cleaning_report) reports[f.filename] = f.cleaning_report;
+      }
+      setCleaningReports(reports);
+    } catch (e) {
+      console.error('Failed to restore file session:', e);
+    }
+  }, []);
+
+  const clearFiles = useCallback(() => {
+    setSessionId(null);
+    setFiles([]);
+    setCleaningReports({});
+    setRelationships([]);
+    setError(null);
+  }, []);
+
   const removeFile = useCallback(async (filename) => {
     if (!sessionId) return;
     try {
@@ -73,6 +98,8 @@ export function useFileManager() {
     upload,
     addFile,
     removeFile,
+    clearFiles,
+    restoreSession,
     cleaningReports,
     relationships,
     setRelationships,

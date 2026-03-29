@@ -1,4 +1,4 @@
-# BCN Data Analytics - Multi-Agent AI Chatbot
+# Coro BAIN & COMPANY - Multi-Agent AI Chatbot
 
 An end-to-end AI-powered data analytics chatbot that uses a multi-agent architecture to analyze business datasets (CRM, Sales, Sales Rep) and answer questions with clear business insights.
 
